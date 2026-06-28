@@ -14,7 +14,7 @@ class YOLOv8Detector:
             self._model = YOLO(weights)
         except Exception as e:
             raise RuntimeError(f"Failed to load model '{weights}': {e}") from e
-        # FP16 chỉ hợp lệ trên CUDA; CPU sẽ lỗi nếu half=True
+        # FP16 only valid on CUDA; CPU raises RuntimeError with half=True
         self._half = self.device == "cuda"
 
     def predict(self, frame: np.ndarray, conf: float = 0.45, imgsz: int = 640) -> tuple[list[Detection], float]:
@@ -30,7 +30,7 @@ class YOLOv8Detector:
         elapsed = time.monotonic() - t0
 
         detections = self._extract(results)
-        del results  # Results objects giữ reference tới frame, xóa ngay để tránh rò bộ nhớ
+        del results  # discard immediately; Results objects hold frame references
         return detections, elapsed
 
     def _extract(self, results) -> list[Detection]:

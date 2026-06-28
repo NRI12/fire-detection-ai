@@ -25,10 +25,3 @@ output*.png
 
 # OS
 .DS_Store
-
-# Dataset directories (large; managed separately)
-data/raw/*/
-data/datasets/
-
-# Review sidecar outputs
-review/
