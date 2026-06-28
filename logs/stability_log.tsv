@@ -1,0 +1,5 @@
+timestamp	elapsed_min	scenario_id	capture_fps	frames_captured	frames_dropped	drop_pct	ram_mb	cpu_pct	gpu_vram_mb	fsm_state	suspected_count	confirmed_count	notes
+2026-05-17T02:45:00	0.0	A_normal_sim	66	18	0	0.0	—	—	—	IDLE	0	0	AoF002 background sim start — warmup 1431ms
+2026-05-17T02:46:00	0.0	C_tp_fire_sim	39	61	0	0.0	—	—	—	CONFIRMED	2	59	AoF044 fire sim — CONFIRMED frame 3, sustained 59/61 frames
+2026-05-17T02:47:00	0.0	B_background_sim	71	38	0	0.0	—	—	—	IDLE	0	0	AoF013 background sim — clean TN
+2026-05-17T02:48:00	0.0	C_tp_smoke_sim	27	50	0	0.0	—	—	—	CONFIRMED	2	48	AoF045 smoke sim — CONFIRMED frame 3, sustained 48/50 frames

@@ -1,0 +1,28 @@
+[build-system]
+requires = ["setuptools>=42"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "fire-detection-ai"
+version = "0.1.0"
+requires-python = ">=3.11"
+dependencies = [
+    "ultralytics>=8.3",
+    "opencv-python>=4.8",
+    "torch>=2.0",
+    "torchvision>=0.18",
+    "fastapi>=0.110",
+    "uvicorn>=0.29",
+    "python-multipart>=0.0.9",
+    "aiofiles>=23.2",
+    "grad-cam>=1.5",
+]
+
+[project.optional-dependencies]
+training = [
+    "imagehash>=4.3.1",
+    "pyyaml>=6.0",
+]
+
+[tool.setuptools.packages.find]
+where = ["src"]

@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Settings - Fire Detection AI</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#0f1117;--surface:#1a1d27;--surface2:#222636;--border:#2e3348;
+  --accent:#e63946;--text:#e6edf3;--text2:#8b949e;--text3:#636c76;
+  --radius:8px;--green:#3fb950;
+}
+body{background:var(--bg);color:var(--text);font-family:'Segoe UI',system-ui,sans-serif;font-size:13px;line-height:1.5;min-height:100vh}
+header{background:var(--surface);border-bottom:1px solid var(--border);padding:8px 16px;display:flex;align-items:center;gap:16px}
+header h1{font-size:15px;font-weight:700;color:var(--accent);letter-spacing:.5px}
+.spacer{flex:1}
+.back-link{color:var(--text2);text-decoration:none;font-size:12px;padding:4px 10px;border:1px solid var(--border);border-radius:5px;transition:.15s}
+.back-link:hover{color:var(--text);border-color:var(--text2)}
+.container{max-width:580px;margin:28px auto;padding:0 16px;display:flex;flex-direction:column;gap:16px}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:18px}
+.card-title{font-size:11px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.8px;margin-bottom:14px}
+.field{margin-bottom:12px}
+.field label{display:block;color:var(--text2);font-size:11px;margin-bottom:4px}
+.field input{width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:5px;color:var(--text);padding:7px 10px;font-size:12px}
+.field input:focus{outline:none;border-color:var(--accent)}
+.hint{color:var(--text3);font-size:11px;margin-top:3px;line-height:1.5}
+.hint a{color:#58a6ff}
+.hint code{background:var(--surface2);border:1px solid var(--border);border-radius:3px;padding:1px 5px;font-size:10px;font-family:monospace}
+.row{display:flex;gap:8px;margin-top:14px;align-items:center}
+.btn{padding:7px 16px;border:none;border-radius:5px;font-size:12px;font-weight:600;cursor:pointer;transition:.15s;white-space:nowrap}
+.btn-primary{background:var(--accent);color:#fff}
+.btn-primary:hover{background:#c1121f}
+.btn-outline{background:transparent;color:var(--text2);border:1px solid var(--border)}
+.btn-outline:hover{color:var(--text);border-color:var(--text2)}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+.status-badge{display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:20px;font-size:11px;font-weight:600}
+.status-badge.ok{background:#3fb95020;border:1px solid #3fb95040;color:var(--green)}
+.status-badge.off{background:var(--surface2);border:1px solid var(--border);color:var(--text3)}
+.dot{width:7px;height:7px;border-radius:50%}
+.dot.green{background:var(--green)}
+.dot.gray{background:var(--text3)}
+.msg{padding:8px 12px;border-radius:5px;font-size:12px;margin-top:10px;display:none}
+.msg.success{background:#3fb95020;border:1px solid #3fb95040;color:var(--green)}
+.msg.error{background:#e6394620;border:1px solid #e6394640;color:var(--accent)}
+.msg.show{display:block}
+.steps{background:var(--surface2);border:1px solid var(--border);border-radius:5px;padding:12px 14px;margin-bottom:14px}
+.steps p{color:var(--text2);font-size:12px;line-height:1.9}
+.steps p b{color:var(--text)}
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Fire Detection AI</h1>
+  <div class="spacer"></div>
+  <a class="back-link" href="/">Trang chủ</a>
+</header>
+
+<div class="container">
+
+  <div class="card">
+    <div class="card-title">Tài khoản Gmail gửi cảnh báo</div>
+
+    <div class="steps">
+      <p>
+        <b>Cách lấy App Password:</b><br>
+        1. Vào <a href="https://myaccount.google.com/security" target="_blank">myaccount.google.com/security</a><br>
+        2. Bật <b>Xác minh 2 bước</b> nếu chưa bật<br>
+        3. Tìm <b>Mật khẩu ứng dụng</b> (App passwords) → chọn <code>Mail</code> → <code>Generate</code><br>
+        4. Copy 16 ký tự và dán vào ô bên dưới
+      </p>
+    </div>
+
+    <div class="field">
+      <label>Gmail gửi (tài khoản của bạn)</label>
+      <input type="email" id="sender-email" placeholder="yourname@gmail.com">
+    </div>
+    <div class="field">
+      <label>App Password (16 ký tự)</label>
+      <input type="password" id="app-password" placeholder="xxxx xxxx xxxx xxxx" autocomplete="new-password">
+      <div class="hint">Đây là mật khẩu ứng dụng riêng biệt, khác mật khẩu Gmail chính. Không cần OAuth hay Google Cloud Console.</div>
+    </div>
+
+    <div class="row">
+      <button class="btn btn-primary" onclick="saveSender()">Lưu</button>
+      <button class="btn btn-outline" id="btn-test" onclick="testConnection()">Kiểm tra kết nối</button>
+      <div id="conn-status"></div>
+    </div>
+    <div class="msg" id="msg-sender"></div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">Email nhận cảnh báo</div>
+    <div class="field">
+      <label>Địa chỉ email nhận</label>
+      <input type="email" id="recipient-email" placeholder="receiver@gmail.com">
+      <div class="hint">Người này sẽ nhận email khi hệ thống phát hiện lửa hoặc khói. Có thể là bất kỳ email nào, không cần phải là Gmail.</div>
+    </div>
+    <div class="row">
+      <button class="btn btn-primary" onclick="saveRecipient()">Lưu</button>
+    </div>
+    <div class="msg" id="msg-recipient"></div>
+  </div>
+
+</div>
+
+<script>
+async function loadSettings() {
+  try {
+    const r = await fetch('/api/settings');
+    const d = await r.json();
+    if (d.sender_email) document.getElementById('sender-email').value = d.sender_email;
+    if (d.app_password) document.getElementById('app-password').value = d.app_password;
+    if (d.recipient_email) document.getElementById('recipient-email').value = d.recipient_email;
+    updateStatus(d.configured);
+  } catch (e) { console.error(e); }
+}
+
+function updateStatus(configured) {
+  const el = document.getElementById('conn-status');
+  if (configured) {
+    el.innerHTML = '<span class="status-badge ok"><span class="dot green"></span>Đã cấu hình</span>';
+  } else {
+    el.innerHTML = '<span class="status-badge off"><span class="dot gray"></span>Chưa cấu hình</span>';
+  }
+}
+
+async function saveSender() {
+  const senderEmail = document.getElementById('sender-email').value.trim();
+  const appPassword = document.getElementById('app-password').value.trim();
+  if (!senderEmail || !appPassword) {
+    showMsg('msg-sender', 'Vui lòng nhập đầy đủ email và App Password', true);
+    return;
+  }
+  const updates = {sender_email: senderEmail};
+  if (appPassword !== '***') updates.app_password = appPassword;
+  try {
+    const r = await fetch('/api/settings', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify(updates),
+    });
+    if (!r.ok) throw new Error();
+    showMsg('msg-sender', 'Đã lưu. Bấm "Kiểm tra kết nối" để xác nhận.', false);
+    await loadSettings();
+  } catch {
+    showMsg('msg-sender', 'Lỗi lưu cài đặt', true);
+  }
+}
+
+async function testConnection() {
+  const btn = document.getElementById('btn-test');
+  btn.disabled = true;
+  btn.textContent = 'Đang kiểm tra...';
+  try {
+    const r = await fetch('/api/settings/test', {method: 'POST'});
+    const d = await r.json();
+    showMsg('msg-sender', d.message, !d.ok);
+  } catch {
+    showMsg('msg-sender', 'Lỗi kết nối máy chủ', true);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Kiểm tra kết nối';
+  }
+}
+
+async function saveRecipient() {
+  const email = document.getElementById('recipient-email').value.trim();
+  if (!email) {
+    showMsg('msg-recipient', 'Vui lòng nhập email người nhận', true);
+    return;
+  }
+  try {
+    const r = await fetch('/api/settings', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({recipient_email: email}),
+    });
+    if (!r.ok) throw new Error();
+    showMsg('msg-recipient', 'Đã lưu email người nhận', false);
+    await loadSettings();
+  } catch {
+    showMsg('msg-recipient', 'Lỗi lưu email', true);
+  }
+}
+
+function showMsg(id, text, isError) {
+  const el = document.getElementById(id);
+  el.textContent = text;
+  el.className = 'msg show ' + (isError ? 'error' : 'success');
+  setTimeout(() => el.classList.remove('show'), 4000);
+}
+
+loadSettings();
+</script>
+</body>
+</html>

@@ -1,0 +1,34 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+.eggs/
+
+# Virtual environment
+venv/
+.venv/
+
+# Model weights (large binaries)
+data/models/
+*.pt
+*.onnx
+*.engine
+
+# Inference outputs
+output*.jpg
+output*.png
+
+# Jupyter
+.ipynb_checkpoints/
+
+# OS
+.DS_Store
+
+# Dataset directories (large; managed separately)
+data/raw/*/
+data/datasets/
+
+# Review sidecar outputs
+review/

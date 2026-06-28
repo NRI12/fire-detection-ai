@@ -1,0 +1,4 @@
+timestamp	scenario_id	class_detected	confidence	fsm_state	fsm_reached_confirmed	alert_emitted	scene_description	hypothesis
+2026-05-17T02:50:00	A_normal	—	0.000	IDLE	False	False	AoF002: 18 consecutive background frames (video sequence, no labels)	No FP — model correctly stays IDLE
+2026-05-17T02:50:00	B_background	—	0.000	IDLE	False	False	AoF013: 38 background frames (different source video)	No FP — model correctly stays IDLE
+2026-05-17T02:50:00	B_batch	—	0.000	IDLE	False	False	5 individual background images (WEB02798 WEB02715 AoF01303 WEB10420 WEB02759)	No FP — all TN in batch test

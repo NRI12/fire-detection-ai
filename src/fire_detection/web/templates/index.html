@@ -1,0 +1,916 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Fire Detection AI</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#111318;--surface:#1c1f26;--surface2:#23262d;--border:#30333c;
+  --text:#c9cdd6;--text2:#6e7380;--text3:#454a55;
+  --fire:#e84040;--smoke:#7a8290;--ok:#3d9e5f;
+  --radius:8px;--gap:10px;
+}
+body{background:var(--bg);color:var(--text);font-family:'Segoe UI',system-ui,sans-serif;font-size:13px;line-height:1.4;height:100vh;overflow:hidden;display:flex;flex-direction:column}
+
+/* ── Header ── */
+header{background:var(--surface);border-bottom:1px solid var(--border);padding:8px 16px;display:flex;align-items:center;gap:12px;flex-shrink:0}
+header h1{font-size:14px;font-weight:700;color:var(--text);letter-spacing:.3px}
+.badge{padding:2px 7px;border-radius:4px;font-size:11px;font-weight:600;background:var(--surface2);border:1px solid var(--border);color:var(--text2)}
+.badge.fire{color:var(--fire)}
+.badge.smoke{color:var(--smoke)}
+.model-stat{color:var(--text3);font-size:11px}
+.model-stat span{color:var(--text2);font-weight:600}
+header .spacer{flex:1}
+
+/* ── Layout ── */
+.main{display:grid;grid-template-columns:300px 1fr;gap:var(--gap);padding:var(--gap);flex:1;overflow:hidden;min-height:0}
+
+/* ── Left panel ── */
+.left{display:flex;flex-direction:column;gap:var(--gap);overflow-y:auto;min-height:0}
+
+/* ── Panels ── */
+.panel{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:10px}
+.panel-title{font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.8px;margin-bottom:8px}
+
+/* ── Input tabs ── */
+.tabs{display:flex;gap:2px;margin-bottom:8px}
+.tab{flex:1;padding:5px;border:1px solid var(--border);border-radius:5px;background:transparent;color:var(--text2);font-size:11px;font-weight:600;cursor:pointer;text-align:center;transition:.15s}
+.tab.active{background:var(--fire);color:#fff;border-color:var(--fire)}
+.tab-content{display:none}
+.tab-content.active{display:block}
+
+/* ── Drop zone ── */
+.dropzone{border:2px dashed var(--border);border-radius:var(--radius);padding:14px;text-align:center;cursor:pointer;transition:.2s;position:relative}
+.dropzone:hover,.dropzone.drag{border-color:var(--fire);background:#e8404008}
+.dropzone input{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%}
+.dropzone .dz-text{color:var(--text2);font-size:12px}
+.dropzone .dz-hint{color:var(--text3);font-size:11px;margin-top:2px}
+
+/* ── URL input ── */
+.url-row{display:flex;gap:6px}
+input[type=text],input[type=number]{background:var(--surface2);border:1px solid var(--border);border-radius:5px;color:var(--text);padding:6px 8px;font-size:12px;width:100%}
+input[type=text]:focus,input[type=number]:focus{outline:none;border-color:var(--fire)}
+
+/* ── Conf slider ── */
+.conf-row{display:flex;align-items:center;gap:8px;margin-top:8px}
+.conf-row label{color:var(--text2);font-size:11px;white-space:nowrap}
+input[type=range]{flex:1;accent-color:var(--fire)}
+.conf-val{color:var(--text);font-weight:600;font-size:12px;min-width:34px;text-align:right}
+
+/* ── Predict button ── */
+.btn-predict{width:100%;padding:8px;background:var(--fire);color:#fff;border:none;border-radius:var(--radius);font-size:13px;font-weight:700;cursor:pointer;transition:.15s;margin-top:8px}
+.btn-predict:hover{opacity:.88}
+.btn-predict:disabled{background:var(--surface2);color:var(--text3);cursor:not-allowed}
+
+/* ── Sample images ── */
+.samples-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:5px;max-height:150px;overflow-y:auto}
+.sample-thumb{border:2px solid var(--border);border-radius:5px;cursor:pointer;overflow:hidden;aspect-ratio:4/3;transition:.15s;position:relative}
+.sample-thumb img{width:100%;height:100%;object-fit:cover;display:block}
+.sample-thumb:hover{border-color:var(--fire)}
+.sample-thumb.selected{border-color:var(--fire)}
+.sample-thumb .sname{position:absolute;bottom:0;left:0;right:0;background:#000a;color:#fff;font-size:9px;padding:1px 3px;text-overflow:ellipsis;overflow:hidden;white-space:nowrap}
+
+/* ── Paste hint ── */
+.paste-zone{border:2px dashed var(--border);border-radius:var(--radius);padding:18px;text-align:center;color:var(--text2);font-size:12px}
+.paste-preview{max-width:100%;border-radius:5px;margin-top:6px;display:none}
+kbd{background:var(--surface2);border:1px solid var(--border);border-radius:3px;padding:1px 5px;font-size:11px;color:var(--text)}
+
+/* ── Right panel ── */
+.right{display:flex;flex-direction:column;gap:var(--gap);overflow:hidden;min-height:0}
+
+/* ── Image triple display ── */
+.triple{display:grid;grid-template-columns:repeat(3,1fr);gap:var(--gap);flex:1;min-height:0}
+.img-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;display:flex;flex-direction:column}
+.img-card-title{padding:4px 8px;font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.6px;background:var(--surface2);border-bottom:1px solid var(--border);flex-shrink:0}
+.img-card-body{flex:1;display:flex;align-items:center;justify-content:center;overflow:hidden;min-height:0;background:#0d0f13}
+.img-card-body img{max-width:100%;max-height:100%;object-fit:contain;display:block}
+.img-placeholder{color:var(--text3);font-size:11px;text-align:center;padding:20px}
+
+/* ── Detection table ── */
+.det-table{width:100%;border-collapse:collapse;font-size:12px}
+.det-table th{background:var(--surface2);color:var(--text3);font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;padding:5px 8px;text-align:left;border-bottom:1px solid var(--border)}
+.det-table td{padding:4px 8px;border-bottom:1px solid #ffffff06}
+.det-table tr:last-child td{border-bottom:none}
+.det-table tr:hover td{background:#ffffff04}
+.cls-fire{color:var(--fire);font-weight:700}
+.cls-smoke{color:var(--smoke);font-weight:700}
+.conf-bar{width:60px;height:5px;background:var(--surface2);border-radius:3px;display:inline-block;vertical-align:middle;margin-right:5px}
+.conf-fill{height:100%;border-radius:3px}
+
+/* ── Status bar ── */
+.status-bar{display:flex;gap:12px;align-items:center;padding:5px 10px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);font-size:11px;flex-shrink:0}
+.status-item{display:flex;gap:4px;align-items:center}
+.status-item .label{color:var(--text3)}
+.status-item .val{color:var(--text2);font-weight:600}
+.status-dot{width:6px;height:6px;border-radius:50%;background:var(--text3)}
+.status-dot.ok{background:var(--ok)}
+.status-dot.warn{background:var(--fire)}
+
+/* ── Bottom row ── */
+.bottom-row{display:grid;grid-template-columns:1fr 1fr;gap:var(--gap);flex-shrink:0}
+.scroll-body{max-height:120px;overflow-y:auto}
+
+/* ── History table ── */
+.hist-table{width:100%;border-collapse:collapse;font-size:11px}
+.hist-table th{background:var(--surface2);color:var(--text3);font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;padding:4px 8px;text-align:left;border-bottom:1px solid var(--border);position:sticky;top:0}
+.hist-table td{padding:3px 8px;border-bottom:1px solid #ffffff05;vertical-align:middle}
+.hist-table tr:hover td{background:#ffffff04;cursor:pointer}
+.hist-thumb{width:32px;height:24px;object-fit:cover;border-radius:3px;border:1px solid var(--border)}
+
+/* ── Loading overlay ── */
+.loading{position:fixed;inset:0;background:#11131899;display:none;align-items:center;justify-content:center;z-index:999;flex-direction:column;gap:12px}
+.loading.show{display:flex}
+.spinner{width:36px;height:36px;border:2px solid var(--border);border-top-color:var(--fire);border-radius:50%;animation:spin .7s linear infinite}
+.loading-text{color:var(--text2);font-size:12px}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* ── Toast ── */
+.toast{position:fixed;bottom:16px;right:16px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:10px 14px;font-size:12px;z-index:1000;opacity:0;transform:translateY(8px);transition:.2s;pointer-events:none}
+.toast.show{opacity:1;transform:translateY(0)}
+.toast.error{border-color:var(--fire);color:var(--fire)}
+
+/* ── Scrollbar ── */
+::-webkit-scrollbar{width:4px;height:4px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
+
+/* ── No data ── */
+.no-data{color:var(--text3);font-size:11px;padding:12px;text-align:center}
+
+/* ── Video stream area ── */
+.video-area{display:none;flex-direction:column;gap:var(--gap);flex:1;overflow:hidden;min-height:0}
+.video-area.active{display:flex}
+.stream-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;display:flex;flex-direction:column;flex:1;min-height:0}
+.stream-card-title{padding:4px 10px;font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.6px;background:var(--surface2);border-bottom:1px solid var(--border);flex-shrink:0;display:flex;align-items:center;justify-content:space-between}
+.stream-card-body{flex:1;display:flex;align-items:center;justify-content:center;overflow:hidden;min-height:0;background:#0d0f13}
+.stream-card-body img{max-width:100%;max-height:100%;object-fit:contain;display:block}
+.stream-progress{height:2px;background:var(--surface2);flex-shrink:0;display:none}
+.stream-progress-fill{height:100%;background:var(--fire);width:0%;transition:width .15s linear}
+.video-stats{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;flex-shrink:0}
+.vstat{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:6px 10px;text-align:center}
+.vstat .vstat-val{font-size:17px;font-weight:700;line-height:1.2;color:var(--text)}
+.vstat .vstat-lbl{font-size:10px;color:var(--text3);margin-top:2px}
+.vstat.fire .vstat-val{color:var(--fire)}
+.vstat.smoke .vstat-val{color:var(--smoke)}
+.timeline{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:6px 10px;max-height:70px;overflow-y:auto;flex-shrink:0}
+.timeline-title{font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.8px;margin-bottom:4px}
+.timeline-list{display:flex;flex-wrap:wrap;gap:4px}
+.tl-item{font-size:10px;padding:2px 6px;border-radius:3px;white-space:nowrap}
+.tl-fire{background:#e8404018;color:var(--fire);border:1px solid #e8404030}
+.tl-smoke{background:#7a829018;color:var(--smoke);border:1px solid #7a829030}
+
+/* ── Sample rate row ── */
+.sr-row{display:flex;align-items:center;gap:8px;margin-top:8px}
+.sr-row label{color:var(--text2);font-size:11px;white-space:nowrap}
+.sr-row select{background:var(--surface2);border:1px solid var(--border);border-radius:5px;color:var(--text);padding:5px 8px;font-size:12px;flex:1}
+.sr-row select:focus{outline:none;border-color:var(--fire)}
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Fire Detection AI</h1>
+  <div class="badge fire">fire</div>
+  <div class="badge smoke">smoke</div>
+  <div class="badge" id="hdr-device">CPU</div>
+  <div class="model-stat">Model: <span id="hdr-model">YOLOv8s</span></div>
+  <div class="model-stat">Dataset: <span>D-Fire</span></div>
+  <div class="spacer"></div>
+  <span id="hdr-last-ms" style="display:none;color:var(--text3);font-size:11px">Last: <span id="hdr-ms">—</span> ms</span>
+  <a href="/settings" style="color:var(--text3);text-decoration:none;font-size:11px;padding:3px 8px;border:1px solid var(--border);border-radius:5px">Settings</a>
+</header>
+
+<div class="main">
+
+  <!-- ════ LEFT ════ -->
+  <div class="left">
+
+    <div class="panel">
+      <div class="panel-title">Input</div>
+      <div class="tabs">
+        <button class="tab active" onclick="switchTab('upload')">Upload</button>
+        <button class="tab" onclick="switchTab('paste')">Paste</button>
+        <button class="tab" onclick="switchTab('url')">URL</button>
+        <button class="tab" onclick="switchTab('video')">Video</button>
+      </div>
+
+      <div class="tab-content active" id="tab-upload">
+        <div class="dropzone" id="dropzone">
+          <input type="file" accept="image/*" id="file-input" onchange="handleFile(this.files[0])">
+          <div class="dz-text">Kéo thả hoặc click để chọn ảnh</div>
+          <div class="dz-hint">JPG · PNG · WEBP</div>
+        </div>
+        <div id="upload-preview" style="margin-top:6px;display:none">
+          <img id="upload-preview-img" style="max-width:100%;max-height:110px;object-fit:contain;border-radius:5px;border:1px solid var(--border)">
+        </div>
+      </div>
+
+      <div class="tab-content" id="tab-paste">
+        <div class="paste-zone" id="paste-zone" tabindex="0">
+          <div>Nhấn <kbd>Ctrl+V</kbd> để dán ảnh</div>
+          <img class="paste-preview" id="paste-preview">
+        </div>
+      </div>
+
+      <div class="tab-content" id="tab-url">
+        <div class="url-row">
+          <input type="text" id="url-input" placeholder="https://example.com/image.jpg">
+        </div>
+      </div>
+
+      <div class="tab-content" id="tab-video">
+        <div class="dropzone" id="video-dropzone">
+          <input type="file" accept="video/*" id="video-input" onchange="handleVideoFile(this.files[0])">
+          <div class="dz-text">Kéo thả hoặc click để chọn video</div>
+          <div class="dz-hint">MP4 · AVI · MOV · MKV</div>
+        </div>
+        <div id="video-preview-wrap" style="margin-top:6px;display:none">
+          <video id="video-preview" controls style="max-width:100%;max-height:100px;border-radius:5px;border:1px solid var(--border)"></video>
+          <div style="margin-top:3px;font-size:10px;color:var(--text3)" id="video-meta"></div>
+        </div>
+      </div>
+
+      <div class="conf-row">
+        <label>Confidence</label>
+        <input type="range" min="0.1" max="0.95" step="0.05" value="0.45" id="conf-slider" oninput="document.getElementById('conf-val').textContent=parseFloat(this.value).toFixed(2)">
+        <span class="conf-val" id="conf-val">0.45</span>
+      </div>
+      <label style="display:flex;align-items:center;gap:6px;margin-top:8px;cursor:pointer;font-size:11px;color:var(--text2)">
+        <input type="checkbox" id="alert-sound" checked style="accent-color:var(--fire);width:13px;height:13px">
+        Âm thanh cảnh báo
+      </label>
+      <button class="btn-predict" id="btn-predict" onclick="runPredict()">Dự đoán</button>
+    </div>
+
+    <div class="panel">
+      <div class="panel-title">Ảnh mẫu</div>
+      <div class="samples-grid" id="samples-grid">
+        <div class="no-data">Đang tải...</div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-title">Mô hình</div>
+      <table style="width:100%;font-size:11px;border-collapse:collapse">
+        <tr><td style="color:var(--text3);padding:2px 0">Kiến trúc</td><td style="color:var(--text2)">YOLOv8s</td></tr>
+        <tr><td style="color:var(--text3);padding:2px 0">Dataset</td><td style="color:var(--text2)">D-Fire</td></tr>
+        <tr><td style="color:var(--text3);padding:2px 0">Train/Val/Test</td><td style="color:var(--text2)">14k / 3k / 4k</td></tr>
+        <tr><td style="color:var(--text3);padding:2px 0">Classes</td><td><span class="cls-fire">fire</span> &nbsp;<span class="cls-smoke">smoke</span></td></tr>
+        <tr><td style="color:var(--text3);padding:2px 0">Input</td><td style="color:var(--text2)">640 × 640</td></tr>
+        <tr><td style="color:var(--text3);padding:2px 0">GradCAM</td><td style="color:var(--text2)">EigenCAM</td></tr>
+        <tr><td style="color:var(--text3);padding:2px 0">Device</td><td style="color:var(--text2)" id="info-device">—</td></tr>
+        <tr><td style="color:var(--text3);padding:2px 0">Weights</td><td style="color:var(--text2);font-size:10px" id="info-weights">—</td></tr>
+      </table>
+    </div>
+
+  </div>
+
+  <!-- ════ RIGHT ════ -->
+  <div class="right">
+
+    <div class="status-bar">
+      <div class="status-item">
+        <span class="status-dot" id="status-dot"></span>
+        <span class="label">Status:</span>
+        <span class="val" id="status-text">Sẵn sàng</span>
+      </div>
+      <div class="status-item">
+        <span class="label">Inference:</span>
+        <span class="val" id="stat-ms">—</span>
+      </div>
+      <div class="status-item">
+        <span class="label">Detections:</span>
+        <span class="val" id="stat-det">—</span>
+      </div>
+      <div class="status-item">
+        <span class="label">Fire:</span>
+        <span class="val" style="color:var(--fire)" id="stat-fire">—</span>
+      </div>
+      <div class="status-item">
+        <span class="label">Smoke:</span>
+        <span class="val" style="color:var(--smoke)" id="stat-smoke">—</span>
+      </div>
+    </div>
+
+    <!-- Image results -->
+    <div class="triple" id="image-results">
+      <div class="img-card">
+        <div class="img-card-title">Input</div>
+        <div class="img-card-body">
+          <div class="img-placeholder" id="ph-input">Chưa có ảnh</div>
+          <img id="img-input" style="display:none">
+        </div>
+      </div>
+      <div class="img-card">
+        <div class="img-card-title">Output (Bounding Box)</div>
+        <div class="img-card-body">
+          <div class="img-placeholder" id="ph-output">Kết quả sẽ hiển thị ở đây</div>
+          <img id="img-output" style="display:none">
+        </div>
+      </div>
+      <div class="img-card">
+        <div class="img-card-title">GradCAM (EigenCAM)</div>
+        <div class="img-card-body">
+          <div class="img-placeholder" id="ph-gradcam">Bản đồ nhiệt sẽ hiển thị ở đây</div>
+          <img id="img-gradcam" style="display:none">
+        </div>
+      </div>
+    </div>
+
+    <!-- Video stream results -->
+    <div class="video-area" id="video-results">
+
+      <div class="stream-card">
+        <div class="stream-card-title">
+          <span id="stream-label">Live Detection Stream</span>
+          <span id="stream-frameinfo" style="color:var(--text3);font-size:10px"></span>
+        </div>
+        <div class="stream-card-body">
+          <img id="stream-img" style="display:none;max-width:100%;max-height:100%;object-fit:contain">
+          <div class="img-placeholder" id="ph-stream">Chọn video và nhấn Phân tích video</div>
+        </div>
+        <div class="stream-progress" id="stream-progress">
+          <div class="stream-progress-fill" id="stream-progress-fill"></div>
+        </div>
+      </div>
+
+      <div class="video-stats">
+        <div class="vstat fire"><div class="vstat-val" id="vstat-fire">—</div><div class="vstat-lbl">Fire frames</div></div>
+        <div class="vstat smoke"><div class="vstat-val" id="vstat-smoke">—</div><div class="vstat-lbl">Smoke frames</div></div>
+        <div class="vstat"><div class="vstat-val" id="vstat-dur">—</div><div class="vstat-lbl">Duration (s)</div></div>
+        <div class="vstat"><div class="vstat-val" id="vstat-fps">—</div><div class="vstat-lbl">FPS</div></div>
+      </div>
+
+      <div class="timeline">
+        <div class="timeline-title">Detection Timeline</div>
+        <div class="timeline-list" id="timeline-list"><span style="color:var(--text3);font-size:11px">Chưa có dữ liệu</span></div>
+      </div>
+
+    </div>
+
+    <!-- Bottom: detections + history -->
+    <div class="bottom-row">
+
+      <div class="panel" style="padding:0;overflow:hidden">
+        <div class="panel-title" style="padding:5px 10px;background:var(--surface2);border-bottom:1px solid var(--border)">Kết quả phát hiện</div>
+        <div class="scroll-body">
+          <div class="no-data" id="no-det">Chưa có kết quả</div>
+          <table class="det-table" id="det-table" style="display:none">
+            <thead><tr><th>#</th><th>Class</th><th>Confidence</th><th>Info</th></tr></thead>
+            <tbody id="det-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="panel" style="padding:0;overflow:hidden">
+        <div class="panel-title" style="padding:5px 10px;background:var(--surface2);border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between">
+          <span>Lịch sử</span>
+          <button onclick="clearHistory()" style="background:none;border:none;color:var(--text3);font-size:10px;cursor:pointer">Xóa</button>
+        </div>
+        <div class="scroll-body">
+          <div class="no-data" id="no-hist">Chưa có lịch sử</div>
+          <table class="hist-table" id="hist-table" style="display:none">
+            <thead><tr><th>Ảnh</th><th>Thời gian</th><th>Nguồn</th><th>Phát hiện</th><th>ms</th></tr></thead>
+            <tbody id="hist-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+
+    </div>
+
+  </div>
+
+</div>
+
+<div class="loading" id="loading"><div class="spinner"></div><div class="loading-text" id="loading-text">Đang xử lý...</div></div>
+<div class="toast" id="toast"></div>
+
+<script>
+// ── Alarm ──────────────────────────────────────────────────────────────────
+const alarmManager = (() => {
+  let ctx = null, stopTimeout = null, activeNodes = [];
+  function getCtx() { if (!ctx) ctx = new (window.AudioContext || window.webkitAudioContext)(); return ctx; }
+  function stop() { clearTimeout(stopTimeout); activeNodes.forEach(n => { try { n.stop(); } catch(_){} }); activeNodes = []; }
+  function play(durationMs) {
+    stop();
+    const ac = getCtx();
+    if (ac.state === 'suspended') ac.resume();
+    const beepOn = 0.22, beepOff = 0.08, cycle = beepOn + beepOff;
+    const count = Math.ceil(durationMs / 1000 / cycle);
+    for (let i = 0; i < count; i++) {
+      const t0 = ac.currentTime + i * cycle;
+      const osc = ac.createOscillator(), gain = ac.createGain();
+      osc.type = 'square';
+      osc.frequency.setValueAtTime(880, t0);
+      osc.frequency.setValueAtTime(1100, t0 + beepOn * 0.5);
+      gain.gain.setValueAtTime(0, t0);
+      gain.gain.linearRampToValueAtTime(0.25, t0 + 0.01);
+      gain.gain.setValueAtTime(0.25, t0 + beepOn - 0.01);
+      gain.gain.linearRampToValueAtTime(0, t0 + beepOn);
+      osc.connect(gain); gain.connect(ac.destination);
+      osc.start(t0); osc.stop(t0 + beepOn);
+      activeNodes.push(osc);
+    }
+    stopTimeout = setTimeout(stop, durationMs);
+  }
+  return { play, stop };
+})();
+
+// ── State ──────────────────────────────────────────────────────────────────
+let activeTab = 'upload';
+let selectedSample = null, pasteFile = null, uploadFile = null, videoFile = null;
+let historyLocal = [];
+let activeStream = null;
+
+// ── Video display throttle ─────────────────────────────────────────────────
+// Frames arrive faster than realtime; use RAF loop to play at correct speed.
+let _frameQueue = [];
+let _rafId = null;
+let _t0wall = null;   // performance.now() when first frame was queued
+let _t0video = null;  // video timestamp (seconds) of first frame
+let _streamEnded = false;
+let _streamTotalFrames = 0;
+
+function _resetDisplay() {
+  _frameQueue = [];
+  _streamEnded = false;
+  _t0wall = null;
+  _t0video = null;
+  if (_rafId) { cancelAnimationFrame(_rafId); _rafId = null; }
+}
+
+function _renderFrame(data) {
+  const img = document.getElementById('stream-img');
+  const ph  = document.getElementById('ph-stream');
+  img.src = 'data:image/jpeg;base64,' + data.b;
+  if (img.style.display === 'none') { img.style.display = 'block'; ph.style.display = 'none'; }
+  document.getElementById('stream-frameinfo').textContent = `frame ${data.i}  ·  ${data.ts}s`;
+  if (_streamTotalFrames > 0) {
+    document.getElementById('stream-progress-fill').style.width =
+      Math.min(100, (data.i / _streamTotalFrames * 100)).toFixed(1) + '%';
+  }
+}
+
+function _startDisplayLoop() {
+  if (_rafId) return;
+  function loop() {
+    const now = performance.now();
+    while (_frameQueue.length > 0) {
+      const frame = _frameQueue[0];
+      if (_t0wall === null) { _t0wall = now; _t0video = frame.ts; }
+      // How many ms into video this frame is
+      const videoMs = (frame.ts - _t0video) * 1000;
+      const wallMs  = now - _t0wall;
+      if (wallMs < videoMs - 14) break; // not time yet (~1 frame tolerance at 60fps)
+      _frameQueue.shift();
+      _renderFrame(frame);
+    }
+    if (_frameQueue.length > 0 || !_streamEnded) {
+      _rafId = requestAnimationFrame(loop);
+    } else {
+      _rafId = null;
+    }
+  }
+  _rafId = requestAnimationFrame(loop);
+}
+
+// ── Init ───────────────────────────────────────────────────────────────────
+(async () => {
+  await loadModelInfo();
+  await loadSamples();
+  await loadHistory();
+})();
+
+// ── Tab switching ──────────────────────────────────────────────────────────
+function switchTab(tab) {
+  activeTab = tab;
+  document.querySelectorAll('.tab').forEach((t, i) => {
+    t.classList.toggle('active', ['upload','paste','url','video'][i] === tab);
+  });
+  document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+  document.getElementById('tab-' + tab).classList.add('active');
+  if (tab === 'paste') document.getElementById('paste-zone').focus();
+  document.getElementById('btn-predict').textContent = tab === 'video' ? 'Phân tích video' : 'Dự đoán';
+}
+
+// ── File handling ──────────────────────────────────────────────────────────
+function handleFile(file) {
+  if (!file || !file.type.startsWith('image/')) return;
+  uploadFile = file; selectedSample = null;
+  const reader = new FileReader();
+  reader.onload = e => {
+    document.getElementById('upload-preview-img').src = e.target.result;
+    document.getElementById('upload-preview').style.display = 'block';
+  };
+  reader.readAsDataURL(file);
+  document.querySelectorAll('.sample-thumb').forEach(t => t.classList.remove('selected'));
+}
+
+function handleVideoFile(file) {
+  if (!file || !file.type.startsWith('video/')) { showToast('Vui lòng chọn file video', true); return; }
+  videoFile = file;
+  const url = URL.createObjectURL(file);
+  const vid = document.getElementById('video-preview');
+  vid.src = url;
+  vid.onloadedmetadata = () => {
+    const dur = vid.duration, mm = Math.floor(dur / 60), ss = Math.floor(dur % 60);
+    document.getElementById('video-meta').textContent =
+      `${file.name}  ·  ${mm}:${ss.toString().padStart(2,'0')}  ·  ${(file.size/1024/1024).toFixed(1)} MB`;
+  };
+  document.getElementById('video-preview-wrap').style.display = 'block';
+}
+
+// ── Drag & drop ────────────────────────────────────────────────────────────
+const dz = document.getElementById('dropzone');
+dz.addEventListener('dragover', e => { e.preventDefault(); dz.classList.add('drag'); });
+dz.addEventListener('dragleave', () => dz.classList.remove('drag'));
+dz.addEventListener('drop', e => { e.preventDefault(); dz.classList.remove('drag'); if (e.dataTransfer.files[0]) handleFile(e.dataTransfer.files[0]); });
+
+const vdz = document.getElementById('video-dropzone');
+vdz.addEventListener('dragover', e => { e.preventDefault(); vdz.classList.add('drag'); });
+vdz.addEventListener('dragleave', () => vdz.classList.remove('drag'));
+vdz.addEventListener('drop', e => { e.preventDefault(); vdz.classList.remove('drag'); if (e.dataTransfer.files[0]) handleVideoFile(e.dataTransfer.files[0]); });
+
+// ── Paste ──────────────────────────────────────────────────────────────────
+document.addEventListener('paste', e => {
+  const items = e.clipboardData?.items;
+  if (!items) return;
+  for (const item of items) {
+    if (item.type.startsWith('image/')) {
+      const file = item.getAsFile();
+      pasteFile = file; switchTab('paste');
+      const reader = new FileReader();
+      reader.onload = ev => {
+        const prev = document.getElementById('paste-preview');
+        prev.src = ev.target.result; prev.style.display = 'block';
+      };
+      reader.readAsDataURL(file);
+      break;
+    }
+  }
+});
+
+// ── Model info ─────────────────────────────────────────────────────────────
+async function loadModelInfo() {
+  try {
+    const d = await fetch('/api/model-info').then(r => r.json());
+    document.getElementById('hdr-device').textContent = d.device.toUpperCase();
+    document.getElementById('hdr-model').textContent = d.framework + ' (' + d.weights.replace('.pt','') + ')';
+    document.getElementById('info-device').textContent = d.device.toUpperCase();
+    document.getElementById('info-weights').textContent = d.weights;
+    document.getElementById('status-dot').classList.add('ok');
+  } catch {}
+}
+
+// ── Samples ────────────────────────────────────────────────────────────────
+async function loadSamples() {
+  const grid = document.getElementById('samples-grid');
+  try {
+    const d = await fetch('/api/samples').then(r => r.json());
+    if (!d.samples.length) { grid.innerHTML = '<div class="no-data">Không có ảnh mẫu</div>'; return; }
+    grid.innerHTML = '';
+    d.samples.forEach(name => {
+      const div = document.createElement('div');
+      div.className = 'sample-thumb'; div.title = name;
+      div.innerHTML = `<img src="/static/samples/${name}" loading="lazy"><span class="sname">${name}</span>`;
+      div.onclick = () => selectSample(name, div);
+      grid.appendChild(div);
+    });
+  } catch { grid.innerHTML = '<div class="no-data">Lỗi tải ảnh mẫu</div>'; }
+}
+
+function selectSample(name, el) {
+  selectedSample = name; uploadFile = null; pasteFile = null;
+  document.querySelectorAll('.sample-thumb').forEach(t => t.classList.remove('selected'));
+  el.classList.add('selected');
+}
+
+// ── History ────────────────────────────────────────────────────────────────
+async function loadHistory() {
+  try {
+    const d = await fetch('/api/history').then(r => r.json());
+    historyLocal = d.history || [];
+    renderHistory();
+  } catch {}
+}
+
+function renderHistory() {
+  const tbody = document.getElementById('hist-tbody');
+  const noHist = document.getElementById('no-hist');
+  const table = document.getElementById('hist-table');
+  if (!historyLocal.length) { noHist.style.display = ''; table.style.display = 'none'; return; }
+  noHist.style.display = 'none'; table.style.display = '';
+  tbody.innerHTML = historyLocal.map((h, i) => {
+    const fires = (h.detections||[]).filter(d => d.class_name === 'fire').length;
+    const smokes = (h.detections||[]).filter(d => d.class_name === 'smoke').length;
+    const src = h.source.startsWith('sample:') ? h.source.replace('sample:','') : h.source;
+    return `<tr onclick="reloadHistory(${i})">
+      <td>${h.thumbnail_b64 ? `<img class="hist-thumb" src="data:image/jpeg;base64,${h.thumbnail_b64}">` : '—'}</td>
+      <td style="color:var(--text2)">${h.timestamp}</td>
+      <td style="max-width:70px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text3)">${src}</td>
+      <td>${fires ? `<span style="color:var(--fire)">${fires}F</span> ` : ''}${smokes ? `<span style="color:var(--smoke)">${smokes}S</span>` : ''}${!fires && !smokes ? '<span style="color:var(--text3)">0</span>' : ''}</td>
+      <td style="color:var(--text3)">${h.inference_ms}ms</td>
+    </tr>`;
+  }).join('');
+}
+
+function reloadHistory(i) {
+  const h = historyLocal[i];
+  if (!h) return;
+  displayResult({ detections: h.detections || [], inference_ms: h.inference_ms, input_b64: h.thumbnail_b64, output_b64: h.thumbnail_b64, gradcam_b64: h.thumbnail_b64 });
+}
+
+function clearHistory() { historyLocal = []; renderHistory(); }
+
+// ── Video streaming ────────────────────────────────────────────────────────
+async function runVideoStream() {
+  if (!videoFile) { showToast('Vui lòng chọn file video', true); return; }
+  if (activeStream) { activeStream.close(); activeStream = null; }
+  _resetDisplay();
+
+  const conf = parseFloat(document.getElementById('conf-slider').value);
+
+  // Upload
+  document.getElementById('btn-predict').disabled = true;
+  document.getElementById('status-text').textContent = 'Đang tải video...';
+  setLoadingText('Đang tải video lên...');
+  document.getElementById('loading').classList.add('show');
+
+  let taskId;
+  try {
+    const fd = new FormData();
+    fd.append('file', videoFile);
+    const r = await fetch('/api/stream/video/upload', { method: 'POST', body: fd });
+    if (!r.ok) throw new Error('Upload thất bại');
+    const d = await r.json();
+    taskId = d.task_id;
+    _streamTotalFrames = d.total_frames || 0;
+  } catch (e) {
+    showToast('Lỗi: ' + e.message, true);
+    document.getElementById('btn-predict').disabled = false;
+    document.getElementById('loading').classList.remove('show');
+    return;
+  }
+
+  document.getElementById('loading').classList.remove('show');
+
+  // Switch to video area
+  document.getElementById('image-results').style.display = 'none';
+  document.getElementById('video-results').classList.add('active');
+
+  // Reset UI
+  const streamImg = document.getElementById('stream-img');
+  const prog = document.getElementById('stream-progress');
+  streamImg.style.display = 'none';
+  document.getElementById('ph-stream').style.display = '';
+  document.getElementById('ph-stream').textContent = 'Đang xử lý...';
+  prog.style.display = _streamTotalFrames > 0 ? '' : 'none';
+  document.getElementById('stream-progress-fill').style.width = '0%';
+  document.getElementById('vstat-fire').textContent = '0';
+  document.getElementById('vstat-smoke').textContent = '0';
+  document.getElementById('vstat-dur').textContent = '—';
+  document.getElementById('vstat-fps').textContent = '—';
+  document.getElementById('stream-label').textContent = 'Live Detection Stream';
+  document.getElementById('stream-frameinfo').textContent = '';
+  document.getElementById('no-det').style.display = '';
+  document.getElementById('no-det').textContent = 'Đang xử lý...';
+  document.getElementById('det-table').style.display = 'none';
+  document.getElementById('status-text').textContent = 'Đang phân tích...';
+  document.getElementById('status-dot').className = 'status-dot';
+  alarmManager.stop();
+
+  const tlList = document.getElementById('timeline-list');
+  tlList.innerHTML = '';
+  let tlEventCount = 0;
+
+  // Open SSE
+  const url = `/api/stream/video/${taskId}?conf=${conf}`;
+  const source = new EventSource(url);
+  activeStream = source;
+
+  source.onmessage = (e) => {
+    const data = JSON.parse(e.data);
+
+    if (data.t === 'f') {
+      // Push frame into display queue — RAF loop renders at correct video speed
+      _frameQueue.push(data);
+      _startDisplayLoop();
+
+      // Update stats immediately (not rate-sensitive)
+      document.getElementById('vstat-fire').textContent = data.fire;
+      document.getElementById('vstat-smoke').textContent = data.smoke;
+      document.getElementById('stat-fire').textContent = data.fire;
+      document.getElementById('stat-smoke').textContent = data.smoke;
+
+      // Detection table & timeline — only on inference frames (d array populated)
+      if (data.d && data.d.length > 0) {
+        updateDetTableStream(data.d, data.ts);
+        if (tlEventCount < 60) {
+          const hasFire = data.d.some(d => d.c === 'fire');
+          const span = document.createElement('span');
+          span.className = 'tl-item ' + (hasFire ? 'tl-fire' : 'tl-smoke');
+          span.textContent = (hasFire ? '🔥' : '💨') + ' ' + data.ts + 's';
+          tlList.appendChild(span);
+          tlEventCount++;
+        }
+      }
+
+      // Status dot
+      if (data.fire > 0) {
+        document.getElementById('status-dot').className = 'status-dot warn';
+        document.getElementById('status-text').textContent = 'Phát hiện lửa!';
+      } else if (data.smoke > 0) {
+        document.getElementById('status-dot').className = 'status-dot warn';
+        document.getElementById('status-text').textContent = 'Phát hiện khói';
+      }
+
+    } else if (data.t === 'done') {
+      source.close(); activeStream = null;
+      _streamEnded = true; // let RAF loop drain remaining frames then stop
+
+      document.getElementById('vstat-fire').textContent = data.fire;
+      document.getElementById('vstat-smoke').textContent = data.smoke;
+      document.getElementById('vstat-fps').textContent = data.fps;
+      document.getElementById('vstat-dur').textContent = data.dur;
+      document.getElementById('stat-fire').textContent = data.fire;
+      document.getElementById('stat-smoke').textContent = data.smoke;
+      document.getElementById('stat-ms').textContent = '—';
+      document.getElementById('stat-det').textContent = tlEventCount + ' events';
+      prog.style.display = 'none';
+      document.getElementById('stream-label').textContent = 'Kết quả phân tích';
+      document.getElementById('stream-frameinfo').textContent = `${data.total} frames · ${data.fps} fps`;
+      document.getElementById('hdr-last-ms').style.display = 'none';
+      document.getElementById('btn-predict').disabled = false;
+
+      const finalFire = data.fire > 0;
+      document.getElementById('status-text').textContent = finalFire ? 'Phát hiện nguy hiểm!' : data.smoke > 0 ? 'Có khói' : 'An toàn';
+      document.getElementById('status-dot').className = 'status-dot ' + (finalFire ? 'warn' : 'ok');
+      if (finalFire && document.getElementById('alert-sound').checked) alarmManager.play(5000);
+
+      if (!tlEventCount) {
+        tlList.innerHTML = '<span style="color:var(--text3);font-size:11px">Không phát hiện lửa hoặc khói</span>';
+      }
+
+      // History
+      historyLocal.unshift({
+        timestamp: new Date().toLocaleTimeString('vi-VN', {hour:'2-digit',minute:'2-digit',second:'2-digit'}),
+        source: 'video',
+        count: tlEventCount,
+        inference_ms: 0,
+        detections: [],
+        thumbnail_b64: streamImg.src ? streamImg.src.split(',')[1] || '' : '',
+      });
+      if (historyLocal.length > 50) historyLocal.pop();
+      renderHistory();
+
+    } else if (data.t === 'error') {
+      source.close(); activeStream = null;
+      showToast('Lỗi xử lý: ' + data.msg, true);
+      document.getElementById('btn-predict').disabled = false;
+      prog.style.display = 'none';
+      document.getElementById('status-text').textContent = 'Lỗi';
+    }
+  };
+
+  source.onerror = () => {
+    if (source.readyState === EventSource.CLOSED) return;
+    source.close(); activeStream = null;
+    showToast('Kết nối bị gián đoạn', true);
+    document.getElementById('btn-predict').disabled = false;
+    prog.style.display = 'none';
+  };
+}
+
+function updateDetTableStream(dets, ts) {
+  const tbody = document.getElementById('det-tbody');
+  const noDet = document.getElementById('no-det');
+  const table = document.getElementById('det-table');
+  noDet.style.display = 'none'; table.style.display = '';
+  tbody.innerHTML = dets.map((d, i) => {
+    const isFire = d.c === 'fire';
+    const color = isFire ? 'var(--fire)' : 'var(--smoke)';
+    const pct = Math.round(d.p * 100);
+    return `<tr>
+      <td style="color:var(--text3)">${i+1}</td>
+      <td class="${isFire ? 'cls-fire' : 'cls-smoke'}">${d.c}</td>
+      <td><span class="conf-bar"><span class="conf-fill" style="width:${pct}%;background:${color}"></span></span>${pct}%</td>
+      <td style="color:var(--text3);font-size:11px">${ts}s</td>
+    </tr>`;
+  }).join('');
+}
+
+// ── Image predict ──────────────────────────────────────────────────────────
+async function runPredict() {
+  if (activeTab === 'video') { await runVideoStream(); return; }
+
+  const conf = parseFloat(document.getElementById('conf-slider').value);
+  let endpoint, body;
+
+  if (activeTab === 'upload' && uploadFile) {
+    endpoint = '/api/predict/upload'; body = new FormData();
+    body.append('file', uploadFile); body.append('conf', conf);
+  } else if (activeTab === 'paste' && pasteFile) {
+    endpoint = '/api/predict/upload'; body = new FormData();
+    body.append('file', pasteFile); body.append('conf', conf);
+  } else if (activeTab === 'url') {
+    const url = document.getElementById('url-input').value.trim();
+    if (!url) { showToast('Vui lòng nhập URL ảnh', true); return; }
+    endpoint = '/api/predict/url'; body = new FormData();
+    body.append('url', url); body.append('conf', conf);
+  } else if (selectedSample) {
+    endpoint = '/api/predict/sample'; body = new FormData();
+    body.append('filename', selectedSample); body.append('conf', conf);
+  } else {
+    showToast('Vui lòng chọn ảnh hoặc nhập URL', true); return;
+  }
+
+  setLoading(true);
+  try {
+    const r = await fetch(endpoint, { method: 'POST', body });
+    if (!r.ok) { const err = await r.json(); throw new Error(err.detail || 'Lỗi không xác định'); }
+    const data = await r.json();
+    displayResult(data);
+    historyLocal.unshift({
+      timestamp: new Date().toLocaleTimeString('vi-VN', {hour:'2-digit',minute:'2-digit',second:'2-digit'}),
+      source: activeTab === 'upload' ? 'upload' : activeTab === 'url' ? 'url' : selectedSample || 'paste',
+      count: data.detections.length,
+      inference_ms: data.inference_ms,
+      detections: data.detections,
+      thumbnail_b64: data.output_b64,
+    });
+    if (historyLocal.length > 50) historyLocal.pop();
+    renderHistory();
+  } catch (e) {
+    showToast(e.message, true);
+  } finally {
+    setLoading(false);
+  }
+}
+
+function displayResult(data) {
+  document.getElementById('video-results').classList.remove('active');
+  document.getElementById('image-results').style.display = '';
+
+  ['input','output','gradcam'].forEach(k => {
+    const img = document.getElementById('img-'+k);
+    const ph = document.getElementById('ph-'+k);
+    const b64 = data[k+'_b64'];
+    if (b64) { img.src = 'data:image/jpeg;base64,' + b64; img.style.display = 'block'; if (ph) ph.style.display = 'none'; }
+  });
+
+  const fires = data.detections.filter(d => d.class_name === 'fire').length;
+  const smokes = data.detections.filter(d => d.class_name === 'smoke').length;
+  document.getElementById('stat-ms').textContent = data.inference_ms + ' ms';
+  document.getElementById('stat-det').textContent = data.detections.length;
+  document.getElementById('stat-fire').textContent = fires;
+  document.getElementById('stat-smoke').textContent = smokes;
+  document.getElementById('status-text').textContent = fires > 0 ? 'Phát hiện lửa!' : smokes > 0 ? 'Có khói' : 'An toàn';
+  document.getElementById('status-dot').className = 'status-dot ' + (data.detections.length ? 'warn' : 'ok');
+  document.getElementById('hdr-last-ms').style.display = '';
+  document.getElementById('hdr-ms').textContent = data.inference_ms;
+
+  if (fires > 0 && document.getElementById('alert-sound').checked) alarmManager.play(5000); else alarmManager.stop();
+
+  const tbody = document.getElementById('det-tbody');
+  const noDet = document.getElementById('no-det');
+  const table = document.getElementById('det-table');
+  if (!data.detections.length) {
+    noDet.style.display = ''; noDet.textContent = 'Không phát hiện lửa hoặc khói'; table.style.display = 'none'; return;
+  }
+  noDet.style.display = 'none'; table.style.display = '';
+  tbody.innerHTML = data.detections.map((d, i) => {
+    const isFire = d.class_name === 'fire';
+    const color = isFire ? 'var(--fire)' : 'var(--smoke)';
+    const pct = Math.round(d.confidence * 100);
+    return `<tr>
+      <td style="color:var(--text3)">${i+1}</td>
+      <td class="${isFire ? 'cls-fire' : 'cls-smoke'}">${d.class_name}</td>
+      <td><span class="conf-bar"><span class="conf-fill" style="width:${pct}%;background:${color}"></span></span>${(d.confidence*100).toFixed(1)}%</td>
+      <td style="color:var(--text3);font-size:11px">${d.box.join(', ')}</td>
+    </tr>`;
+  }).join('');
+}
+
+// ── Utils ──────────────────────────────────────────────────────────────────
+function setLoading(on) {
+  document.getElementById('loading').classList.toggle('show', on);
+  document.getElementById('btn-predict').disabled = on;
+}
+
+function setLoadingText(txt) {
+  document.getElementById('loading-text').textContent = txt;
+}
+
+function showToast(msg, isErr=false) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = 'toast show' + (isErr ? ' error' : '');
+  setTimeout(() => t.classList.remove('show'), 3000);
+}
+
+document.getElementById('url-input').addEventListener('keydown', e => { if (e.key === 'Enter') runPredict(); });
+</script>
+</body>
+</html>
